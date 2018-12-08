@@ -32,6 +32,10 @@ float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)SCR_HEIGHT / 2.0;
 bool firstMouse = true;
 
+// renderQuad
+int oldSpaceKeyState = GLFW_RELEASE;
+bool b_renderQuad = false;
+
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -83,9 +87,9 @@ int main()
 
     // build and compile shaders
     // -------------------------
-    Shader shader("3.1.3.shadow_mapping.vs", "3.1.3.shadow_mapping.fs");
-    Shader simpleDepthShader("3.1.3.shadow_mapping_depth.vs", "3.1.3.shadow_mapping_depth.fs");
-    Shader debugDepthQuad("3.1.3.debug_quad.vs", "3.1.3.debug_quad_depth.fs");
+    Shader shader("3.1.3a.shadow_mapping.vs", "3.1.3a.shadow_mapping.fs");
+    Shader simpleDepthShader("3.1.3a.shadow_mapping_depth.vs", "3.1.3a.shadow_mapping_depth.fs");
+    Shader debugDepthQuad("3.1.3a.debug_quad.vs", "3.1.3a.debug_quad_depth.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -194,8 +198,8 @@ int main()
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
             glClear(GL_DEPTH_BUFFER_BIT);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, woodTexture);
+           // glActiveTexture(GL_TEXTURE0);
+            //glBindTexture(GL_TEXTURE_2D, woodTexture);
             renderScene(simpleDepthShader);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -229,7 +233,7 @@ int main()
         debugDepthQuad.setFloat("far_plane", far_plane);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, depthMap);
-        //renderQuad();
+        if (b_renderQuad) renderQuad();
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -396,6 +400,12 @@ void processInput(GLFWwindow *window)
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+
+	int spaceKeyState = glfwGetKey(window, GLFW_KEY_SPACE);
+	if (spaceKeyState == GLFW_PRESS && spaceKeyState != oldSpaceKeyState) {
+		b_renderQuad = !b_renderQuad;
+	}
+	oldSpaceKeyState = spaceKeyState;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

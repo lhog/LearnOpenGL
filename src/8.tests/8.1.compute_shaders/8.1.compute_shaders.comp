@@ -1,0 +1,41 @@
+layout(binding = 0, rgba8) uniform readonly image2D inTexture;
+layout(binding = 1, rgba8) uniform restrict image2D outTexture1;
+layout(binding = 2, rgba8) uniform restrict image2D outTexture2;
+
+layout(local_size_x = GROUP_SIZE_X, local_size_y = GROUP_SIZE_Y) in;
+
+void method1() {
+	//ivec2 imgSize = imageSize(inTexture);
+	ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+
+	//if(all(bvec2(texCoord.x < imgSize.x, texCoord.y < imgSize.y)))
+	{
+		vec4 texel = imageLoad(inTexture, texCoord);
+		imageStore(outTexture1, texCoord, texel);
+	}
+}
+
+shared ivec2 texCoord0;
+shared vec4 texels[GROUP_SIZE_X][GROUP_SIZE_Y];
+void method2() {	
+	if (gl_LocalInvocationIndex == 0) {
+		texCoord0 = ivec2(gl_GlobalInvocationID.xy);
+		for (uint i = 0; i < GROUP_SIZE_X; ++i)
+			for (uint j = 0; j < GROUP_SIZE_Y; ++j) {
+				ivec2 texCoord = texCoord0 + ivec2(i, j);
+				texels[i][j] = imageLoad(inTexture, texCoord);
+			}
+	}
+
+	barrier();
+	memoryBarrierShared();
+
+	ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 readTexCoord = texCoord - texCoord0;
+	imageStore(outTexture1, texCoord, texels[readTexCoord.x][readTexCoord.y]);
+}
+
+void main()
+{
+	method1();
+}

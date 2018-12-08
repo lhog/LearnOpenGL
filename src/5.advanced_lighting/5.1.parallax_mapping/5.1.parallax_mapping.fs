@@ -21,13 +21,32 @@ vec2 ParallaxMapping(vec2 texCoords, vec3 viewDir)
     return texCoords - viewDir.xy * (height * heightScale);        
 }
 
+#define PARALLAXMAP_PERSPECTIVE 1
+#define parallaxMapScale heightScale
+#define GET_PARALLAXMAP texture(depthMap, texC).r
+vec2 parallaxMapping(vec2 texC, vec3 tangentViewDir)
+{
+	float height = GET_PARALLAXMAP;
+	#ifdef PARALLAXMAP_PERSPECTIVE //Normal Parallax Mapping
+		vec2 P = tangentViewDir.xy / tangentViewDir.z * height * parallaxMapScale;
+	#else //Parallax Mapping with Offset Limiting
+		vec2 P = tangentViewDir.xy * (height * parallaxMapScale);
+	#endif
+	return texC - P;
+}
+
 void main()
 {           
     // offset texture coordinates with Parallax Mapping
     vec3 viewDir = normalize(fs_in.TangentViewPos - fs_in.TangentFragPos);
     vec2 texCoords = fs_in.TexCoords;
     
+	#if 0
     texCoords = ParallaxMapping(fs_in.TexCoords,  viewDir);       
+	#else
+	texCoords = parallaxMapping(fs_in.TexCoords,  viewDir);
+	#endif
+
     if(texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0)
         discard;
 

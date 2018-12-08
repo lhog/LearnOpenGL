@@ -62,6 +62,7 @@ set(CHAPTERS
     5.advanced_lighting
     6.pbr
     7.in_practice
+	8.tests
 )
 
 set(1.getting_started
@@ -137,6 +138,8 @@ set(5.advanced_lighting
     3.1.1.shadow_mapping_depth
     3.1.2.shadow_mapping_base
     3.1.3.shadow_mapping
+	3.1.3a.shadow_mapping_gpsm
+	3.1.3b.shadow_mapping_csm
     3.2.1.point_shadows
     3.2.2.point_shadows_soft
     4.normal_mapping
@@ -164,6 +167,10 @@ set(7.in_practice
     # 2.text_rendering
 )
 
+set(8.tests
+    8.1.compute_shaders
+)
+
 
 
 configure_file(configuration/root_directory.h.in configuration/root_directory.h)
@@ -189,6 +196,18 @@ foreach(CHAPTER ${CHAPTERS})
             "src/${CHAPTER}/${DEMO}/*.vs"
             "src/${CHAPTER}/${DEMO}/*.fs"
             "src/${CHAPTER}/${DEMO}/*.gs"
+            "src/${CHAPTER}/${DEMO}/*.tes"
+            "src/${CHAPTER}/${DEMO}/*.tcs"
+			"src/${CHAPTER}/${DEMO}/*.cs"
+			
+            "src/${CHAPTER}/${DEMO}/*.vert"
+            "src/${CHAPTER}/${DEMO}/*.frag"
+            "src/${CHAPTER}/${DEMO}/*.geom"
+            "src/${CHAPTER}/${DEMO}/*.tesc"
+            "src/${CHAPTER}/${DEMO}/*.tese"
+			"src/${CHAPTER}/${DEMO}/*.comp"
+			
+			
         )
         set(NAME "${CHAPTER}__${DEMO}")
         add_executable(${NAME} ${SOURCE})
@@ -204,15 +223,26 @@ foreach(CHAPTER ${CHAPTERS})
         endif(WIN32)
         # copy shader files to build directory
         file(GLOB SHADERS
-                 "src/${CHAPTER}/${DEMO}/*.vs"
-                 # "src/${CHAPTER}/${DEMO}/*.frag"
-                 "src/${CHAPTER}/${DEMO}/*.fs"
-                 "src/${CHAPTER}/${DEMO}/*.gs"
+            "src/${CHAPTER}/${DEMO}/*.vs"
+            "src/${CHAPTER}/${DEMO}/*.fs"
+            "src/${CHAPTER}/${DEMO}/*.gs"
+            "src/${CHAPTER}/${DEMO}/*.tes"
+            "src/${CHAPTER}/${DEMO}/*.tcs"
+			"src/${CHAPTER}/${DEMO}/*.cs"
+			
+            "src/${CHAPTER}/${DEMO}/*.vert"
+            "src/${CHAPTER}/${DEMO}/*.frag"
+            "src/${CHAPTER}/${DEMO}/*.geom"
+            "src/${CHAPTER}/${DEMO}/*.tesc"
+            "src/${CHAPTER}/${DEMO}/*.tese"
+			"src/${CHAPTER}/${DEMO}/*.comp"
         )
         foreach(SHADER ${SHADERS})
             if(WIN32)
                 # configure_file(${SHADER} "test")
-                add_custom_command(TARGET ${NAME} PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${SHADER} $<TARGET_FILE_DIR:${NAME}>)
+				get_filename_component(SHADERFILENAME ${SHADER} NAME)
+				set(SHADERTARGETPATH $<TARGET_FILE_DIR:${NAME}>/${SHADERFILENAME})
+                add_custom_command(TARGET ${NAME} PRE_BUILD COMMAND IF NOT exist ${SHADERTARGETPATH} ( mklink /H ${SHADERTARGETPATH} ${SHADER}) )
             elseif(UNIX AND NOT APPLE)
                 file(COPY ${SHADER} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/${CHAPTER})
             elseif(APPLE)
