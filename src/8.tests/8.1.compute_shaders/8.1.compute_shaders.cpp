@@ -22,8 +22,8 @@ void processInput(GLFWwindow *window);
 // settings
 const unsigned int SCR_WIDTH = 1800;
 const unsigned int SCR_HEIGHT = 900;
-const GLuint GROUP_SIZE_X = 8;
-const GLuint GROUP_SIZE_Y = 4;
+const GLuint GROUP_SIZE_X = 32;
+const GLuint GROUP_SIZE_Y = 32;
 
 const GLuint64 loopsToSwitch = 1000;
 
@@ -36,6 +36,8 @@ constexpr char* WinTitle = "LearnOpenGL";
 
 #define NO_VSYNC 1
 #define CONSOLE_PERF 0
+
+#define LINEAR_FILTERING 0
 
 
 GLuint VAO, VBO, EBO;
@@ -172,8 +174,13 @@ void init() {
 	*/
 
 	// set texture filtering parameters
+#if LINEAR_FILTERING
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#else
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+#endif
 	// load image, create texture and generate mipmaps
 	
 	// The FileSystem::getPath(...) is part of the GitHub repository so we can find files on any IDE/platform; replace it with your own image path.
@@ -210,8 +217,13 @@ void init() {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+#if LINEAR_FILTERING
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+#else
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+#endif
 
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outTexFBO[i], 0);
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -265,6 +277,8 @@ void displayFPS(GLFWwindow* win, const char* info, const double fps)
 
 	glfwSetWindowTitle(win, winTitleFPS);
 }
+
+#define DRAW_RESULT 1
 
 int main()
 {
@@ -340,8 +354,9 @@ int main()
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 		glClearColor(0.0, 0.0, 0.0, 0.0);
 		glClear(GL_COLOR_BUFFER_BIT);
+#if DRAW_RESULT
 		drawTextureToFramebuffer(outTexFBO[0], outputShader);
-
+#endif
 		double currentTime = glfwGetTime();
 		++frameCount;
 		if (currentTime - lastFPSTime >= 0.5) {
