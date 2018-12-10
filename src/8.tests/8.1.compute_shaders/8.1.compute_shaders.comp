@@ -39,7 +39,7 @@ void method2() {
 				ivec2 texCoord = texCoord0 + ivec2(i, j);
 
 				#if SAFE_BOUNDS
-					bvec4 ok = bvec4(greaterThanEqual(texCoord, uvec2(0)), lessThanEqual(texCoord, imgSize));
+					bvec4 ok = bvec4(greaterThanEqual(texCoord, uvec2(0)), lessThan(texCoord, imgSize));
 					#if 1
 						if (all(ok))
 							texels[i + KERNEL_HS][j + KERNEL_HS] = imageLoad(inTexture, texCoord);
