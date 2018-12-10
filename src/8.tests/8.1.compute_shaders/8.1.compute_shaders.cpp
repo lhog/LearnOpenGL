@@ -5,6 +5,10 @@
 #include <learnopengl/filesystem.h>
 #include <learnopengl/shader_s.h>
 
+#ifdef _DEBUG
+	#include <learnopengl/debugCallback.h>
+#endif
+
 #include <iostream>
 
 #include <chrono>
@@ -18,10 +22,10 @@ void processInput(GLFWwindow *window);
 // settings
 const unsigned int SCR_WIDTH = 1800;
 const unsigned int SCR_HEIGHT = 900;
-const GLuint GROUP_SIZE_X = 16;
-const GLuint GROUP_SIZE_Y = 16;
+const GLuint GROUP_SIZE_X = 8;
+const GLuint GROUP_SIZE_Y = 4;
 
-const GLuint64 loopsToSwitch = 10000;
+const GLuint64 loopsToSwitch = 1000;
 
 
 // FPS
@@ -39,7 +43,7 @@ GLuint VAO, VBO, EBO;
 GLuint inTexture;
 
 GLuint outFBO[2];
-GLuint outTexture[2];
+GLuint outTexFBO[2];
 
 int inTexWidth, inTexHeight, inTexNOfChannels;
 
@@ -59,6 +63,10 @@ void init() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#ifdef _DEBUG
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+#endif
 
 
 #ifdef __APPLE__
@@ -88,10 +96,20 @@ void init() {
 		exit(-1);
 	}
 
+#ifdef _DEBUG
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+	glDebugMessageCallback(LearnOpenGL::debugCallback, nullptr);
+	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+	glDebugMessageInsert(GL_DEBUG_SOURCE_APPLICATION, GL_DEBUG_TYPE_MARKER, 0,
+		GL_DEBUG_SEVERITY_NOTIFICATION, -1, "Start of debug log");
+#endif
+
 	// build and compile our shader program
 	// ------------------------------------
 	outputShader = make_unique<Shader>("8.1.compute_shaders.vert", "8.1.compute_shaders.frag");
-	outputShader->setInt("texture1", 0);
+	outputShader->activateWith([]() {
+		outputShader->setInt("texture1", 0);
+	});
 
 	auto compShaderDefs = vector<string>();
 	
@@ -100,8 +118,10 @@ void init() {
 	compShaderDefs.emplace_back("#define GROUP_SIZE_Y " + to_string(GROUP_SIZE_Y));
 	blurCSShader = make_unique<Shader>("8.1.compute_shaders.comp", compShaderDefs);
 
-	blurFBOShader = make_unique<Shader>("8.1.compute_shaders.vert", "8.1.compute_shaders.frag");
-	blurFBOShader->setInt("texture1", 0);
+	blurFBOShader = make_unique<Shader>("8.1.compute_shaders_blur.vert", "8.1.compute_shaders_blur.frag");
+	blurFBOShader->activateWith([]() {
+		blurFBOShader->setInt("texture1", 0);
+	});
 
 
 	// set up vertex data (and buffer(s)) and configure vertex attributes
@@ -181,11 +201,11 @@ void init() {
 		glViewport(0, 0, inTexWidth, inTexHeight);
 		glBindFramebuffer(GL_FRAMEBUFFER, outFBO[i]);
 		// create a color attachment texture
-		glGenTextures(1, &outTexture[i]);
-		glBindTexture(GL_TEXTURE_2D, outTexture[i]);
+		glGenTextures(1, &outTexFBO[i]);
+		glBindTexture(GL_TEXTURE_2D, outTexFBO[i]);
 		//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, inTexWidth, inTexHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, inTexWidth, inTexHeight);
-		glBindImageTexture(i + 1, outTexture[i], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+		glBindImageTexture(i + 1, outTexFBO[i], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -193,7 +213,7 @@ void init() {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outTexture[i], 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outTexFBO[i], 0);
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 			cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
 			exit(-1);
@@ -217,7 +237,7 @@ void finalize() {
 
 	glDeleteTextures(1, &inTexture);
 	
-	glDeleteTextures(2, &outTexture[2]);
+	glDeleteTextures(2, &outTexFBO[0]);
 	glDeleteFramebuffers(2, &outFBO[0]);
 
 	// glfw: terminate, clearing all previously allocated GLFW resources.
@@ -283,7 +303,7 @@ int main()
 		beginTime = high_resolution_clock::now();
 		glBeginQuery(GL_TIME_ELAPSED, timerQuery);
 #endif
-		//glClearTexImage(outTexture[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, zeros);
+		glClearTexImage(outTexFBO[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, zeros);
 		if (renderingMethod == 0) { //CS
 			blurCSShader->use();
 
@@ -320,7 +340,7 @@ int main()
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 		glClearColor(0.0, 0.0, 0.0, 0.0);
 		glClear(GL_COLOR_BUFFER_BIT);
-		drawTextureToFramebuffer(outTexture[0], outputShader);
+		drawTextureToFramebuffer(outTexFBO[0], outputShader);
 
 		double currentTime = glfwGetTime();
 		++frameCount;

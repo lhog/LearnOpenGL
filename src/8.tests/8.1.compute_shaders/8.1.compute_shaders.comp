@@ -1,41 +1,78 @@
+#line 1
 layout(binding = 0, rgba8) uniform readonly image2D inTexture;
 layout(binding = 1, rgba8) uniform restrict image2D outTexture1;
 layout(binding = 2, rgba8) uniform restrict image2D outTexture2;
 
 layout(local_size_x = GROUP_SIZE_X, local_size_y = GROUP_SIZE_Y) in;
 
+#define KERNEL_HS 5
+#define KERNEL_HS_SIZE (2 * KERNEL_HS)
+#define KERNEL_HS_SIZE1 (2 * KERNEL_HS + 1)
+
+#define KERNEL_DIV float(KERNEL_HS_SIZE1*KERNEL_HS_SIZE1)
+
 void method1() {
-	//ivec2 imgSize = imageSize(inTexture);
 	ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
 
-	//if(all(bvec2(texCoord.x < imgSize.x, texCoord.y < imgSize.y)))
-	{
-		vec4 texel = imageLoad(inTexture, texCoord);
-		imageStore(outTexture1, texCoord, texel);
-	}
+	vec4 FragColor = vec4(0.0);
+
+	for (int i = -KERNEL_HS; i <= KERNEL_HS; ++i)
+		for (int j = -KERNEL_HS; j <= KERNEL_HS; ++j)
+			FragColor += imageLoad(inTexture, texCoord + ivec2(i, j));
+	FragColor /= KERNEL_DIV;
+
+	imageStore(outTexture1, texCoord, FragColor);
 }
 
+#define SAFE_BOUNDS 0
+
 shared ivec2 texCoord0;
-shared vec4 texels[GROUP_SIZE_X][GROUP_SIZE_Y];
+shared vec4 texels[GROUP_SIZE_X + KERNEL_HS_SIZE][GROUP_SIZE_Y + KERNEL_HS_SIZE];
 void method2() {	
 	if (gl_LocalInvocationIndex == 0) {
+		#if SAFE_BOUNDS
+			uvec2 imgSize = imageSize(inTexture);
+		#endif
 		texCoord0 = ivec2(gl_GlobalInvocationID.xy);
-		for (uint i = 0; i < GROUP_SIZE_X; ++i)
-			for (uint j = 0; j < GROUP_SIZE_Y; ++j) {
+		for (int i = -KERNEL_HS; i < GROUP_SIZE_X + KERNEL_HS; ++i) {
+			for (int j = -KERNEL_HS; j < GROUP_SIZE_Y + KERNEL_HS; ++j) {
 				ivec2 texCoord = texCoord0 + ivec2(i, j);
-				texels[i][j] = imageLoad(inTexture, texCoord);
+
+				#if SAFE_BOUNDS
+					bvec4 ok = bvec4(greaterThanEqual(texCoord, uvec2(0)), lessThanEqual(texCoord, imgSize));
+					#if 1
+						if (all(ok))
+							texels[i + KERNEL_HS][j + KERNEL_HS] = imageLoad(inTexture, texCoord);
+						else
+							texels[i + KERNEL_HS][j + KERNEL_HS] = vec4(0.0);
+					#else
+						texels[i + KERNEL_HS][j + KERNEL_HS] = mix(imageLoad(inTexture, texCoord), vec4(0.0), vec4(ok));
+					#endif
+				#else
+					texels[i + KERNEL_HS][j + KERNEL_HS] = imageLoad(inTexture, texCoord);
+				#endif
 			}
+		}
+		imageStore(outTexture1, texCoord0, texels[KERNEL_HS][KERNEL_HS]);
 	}
 
-	barrier();
-	memoryBarrierShared();
+	//barrier();
+	//memoryBarrierShared();
 
 	ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-	ivec2 readTexCoord = texCoord - texCoord0;
-	imageStore(outTexture1, texCoord, texels[readTexCoord.x][readTexCoord.y]);
+	ivec2 readTexDiff = texCoord - texCoord0;
+
+	vec4 FragColor = vec4(0.0);
+
+	for (int i = -KERNEL_HS; i <= KERNEL_HS; ++i)
+		for (int j = -KERNEL_HS; j <= KERNEL_HS; ++j)
+			FragColor += texels[readTexDiff.x + i + KERNEL_HS][readTexDiff.y + j + KERNEL_HS];
+	FragColor /= KERNEL_DIV;
+
+	imageStore(outTexture1, texCoord, FragColor);
 }
 
 void main()
 {
-	method1();
+	method2();
 }

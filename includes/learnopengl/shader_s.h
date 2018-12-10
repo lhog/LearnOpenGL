@@ -12,6 +12,8 @@
 #include <vector>
 #include <tuple>
 
+#include <functional>
+
 class Shader
 {
 public:
@@ -69,6 +71,12 @@ public:
     void use() { 
         glUseProgram(programId);
     }
+
+	void activateWith(const std::function<void(void)> userFunc) {
+		glUseProgram(programId);
+		userFunc();
+		glUseProgram(0);
+	}
     // utility uniform functions
     // ------------------------------------------------------------------------
     void setBool(const std::string &name, bool value) const {         
